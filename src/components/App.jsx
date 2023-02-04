@@ -1,87 +1,80 @@
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
 import fetchImages from './Api';
 import Searchbar from './Searchbar/Searchbar';
 import ImageGallery from './ImageGallery/ImageGallery';
 import Button from './Button/Button';
 import Loader from './Loader/Loader';
 
-class App extends Component {
-  state = {
-    showLoader: false,
-    showStartTitle: true,
-    images: [],
-    page: 1,
-    query: '',
-    totalFound: 0,
-    scroll: 0,
-  };
+export default function App () {
+const [showLoader, setShowLoader] = useState(false);
+const [showStartTitle, setShowStartTitle] = useState(true);
+const [images, setImages] = useState([]);
+const [page, setPage] = useState(1);
+const [query, setQuery] = useState('');
+const [totalFound, setTotalFound] = useState(0);
+const [scroll, setScroll] = useState(0);
 
-  componentDidUpdate(_, prevState) {
-    if (
-      prevState.page !== this.state.page ||
-      prevState.query !== this.state.query
-    ) {
-      this.setState({ showLoader: true });
 
-      fetchImages(this.state.query, this.state.page)
+useEffect(() => {
+    if (!query) {
+      return;
+    }
+
+    setShowLoader(true);
+
+    try {
+      fetchImages(query, page)
         .then(data => {
           if (!data.hits.length) {
             alert('No images found due to your search inquiry');
           } else {
-            this.setState(prevState => ({
-              showStartTitle: false,
-              images: [...prevState.images, ...data.hits],
-              totalFound: data.totalHits,
-              scroll: document.documentElement.scrollHeight,
-            }));
+            setShowStartTitle(false);
+            setImages(prevState => {
+              return [...prevState, ...data.hits];
+            });
+            setTotalFound(data.totalHits);
+            setShowLoader(false);
+            setScroll(document.documentElement.scrollHeight);
           }
-        })
-        .catch(error => alert(error))
-        .finally(prevState =>
-          this.setState({
-            showLoader: false,
-          })
-        );
+        });}
+        catch (error) {
+          console.log(error);
+        }
+      }, [page, query]);
+
+
+      useEffect(() => {
+        if (!scroll || page === 1) {
+          return;
+        }
+        window.scrollBy({
+          top: window.innerHeight - 240,
+          behavior: 'smooth',
+        });
+      }, [page, scroll]);
+  
+
+  const searchQuery = newQuery => {
+    if (newQuery.trim() !== query) {
+        setPage(1);
+        setQuery(newQuery.trim());
+        setImages([]);
+      };
     }
 
-    if (prevState.scroll !== this.state.scroll && this.state.page > 1) {
-      window.scrollTo({
-        top: this.state.scroll - 240,
-        behavior: 'smooth',
-      });
-    }
-  }
-
-  searchQuery = newQuery => {
-    if (newQuery.trim() !== this.state.query) {
-      this.setState({
-        page: 1,
-        query: newQuery.trim(),
-        images: [],
-      });
-    }
+  const loadMore = () => {
+      setPage(prevPage => prevPage + 1);
   };
 
-  loadMore = () => {
-    this.setState(prevState => ({
-      page: prevState.page + 1,
-    }));
-  };
-
-  render() {
-    const { images, totalFound, showLoader } = this.state;
-    return (
+  return (
       <>
-        <Searchbar onSubmit={this.searchQuery} />
+        <Searchbar onSubmit={searchQuery} />
         <ImageGallery images={images} />
         {showLoader && <Loader />}
         {images.length > 0 && images.length < totalFound && (
-          <Button loadMore={this.loadMore} />
+          <Button loadMore={loadMore} />
         )}
 
       </>
     );
-  }
-}
-
-export default App;
+        }
